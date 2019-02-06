@@ -3,11 +3,6 @@
     Based on Neil Kolban example for IDF: https://github.com/nkolban/esp32-snippets/blob/master/cpp_utils/tests/BLE%20Tests/SampleNotify.cpp
     Ported to Arduino ESP32 by Evandro Copercini
 
-   Create a BLE server that, once we receive a connection, will send periodic notifications.
-   The service advertises itself as: 6E400001-B5A3-F393-E0A9-E50E24DCCA9E
-   Has a characteristic of: 6E400002-B5A3-F393-E0A9-E50E24DCCA9E - used for receiving data with "WRITE" 
-   Has a characteristic of: 6E400003-B5A3-F393-E0A9-E50E24DCCA9E - used to send data with  "NOTIFY"
-
    The design of creating the BLE server is:
    1. Create a BLE Server
    2. Create a BLE Service
@@ -43,6 +38,7 @@ const int LED = 2; // Could be different depending on the dev board. I used the 
 
 class MyServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
+      Serial.println("Connected");
       deviceConnected = true;
     };
 
@@ -63,19 +59,19 @@ class MyCallbacks: public BLECharacteristicCallbacks {
           Serial.print(rxValue[i]);
         }
 
-        Serial.println();
+        // Serial.println();
 
         // Do stuff based on the command received from the app
-        if (rxValue.find("A") != -1) { 
-          Serial.print("Turning ON!");
-          digitalWrite(LED, HIGH);
-        }
-        else if (rxValue.find("B") != -1) {
-          Serial.print("Turning OFF!");
-          digitalWrite(LED, LOW);
-        }
+        // if (rxValue.find("A") != -1) { 
+        //   Serial.print("Turning ON!");
+        //   digitalWrite(LED, HIGH);
+        // }
+        // else if (rxValue.find("B") != -1) {
+        //   Serial.print("Turning OFF!");
+        //   digitalWrite(LED, LOW);
+        // }
 
-        Serial.println();
+        // Serial.println();
         Serial.println("*********");
       }
     }
@@ -115,20 +111,21 @@ void setup() {
   pService->start();
 
   // Start advertising
-  pServer->getAdvertising()->start();
+  BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
+  pAdvertising->addServiceUUID(SERVICE_UUID);
+  pAdvertising->setScanResponse(true);
+  pAdvertising->setMinPreferred(0x06);  // functions that help with iPhone connections issue
+  pAdvertising->setMinPreferred(0x12);
+  BLEDevice::startAdvertising();  
   Serial.println("Waiting a client connection to notify...");
 }
 
-void loop() {
-  bool deviceIsConnected = false;
+void loop() {  
   if (deviceConnected) {
-    if(!deviceIsConnected) {
-      Serial.println("Device connected!");
-      deviceConnected = true;
-    }
+    Serial.println("Device connected!");
     
     // Fabricate some arbitrary junk for now...
-    txValue = analogRead(readPin) / 3.456; // This could be an actual sensor reading!
+    txValue = random(4) / 3.456; // This could be an actual sensor reading!
 
     // Let's convert the value to a char array:
     char txString[8]; // make sure this is big enuffz
@@ -156,6 +153,6 @@ void loop() {
 //      digitalWrite(LED, LOW);
 //    }
   }
-  Serial.print("test");
+  // Serial.print("test");
   delay(1000);
 }
