@@ -1,26 +1,17 @@
-/*
-    Video: https://www.youtube.com/watch?v=oCMOYS71NIU
-    Based on Neil Kolban example for IDF: https://github.com/nkolban/esp32-snippets/blob/master/cpp_utils/tests/BLE%20Tests/SampleNotify.cpp
-    Ported to Arduino ESP32 by Evandro Copercini
-
-   The design of creating the BLE server is:
-   1. Create a BLE Server
-   2. Create a BLE Service
-   3. Create a BLE Characteristic on the Service
-   4. Create a BLE Descriptor on the characteristic
-   5. Start the service.
-   6. Start advertising.
-
-   In this example rxValue is the data received (only accessible inside that function).
-   And txValue is the data to be sent, in this example just a byte incremented every second. 
-*/
-
 #include <Arduino.h>
 #include <BLEDevice.h>
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include <BLE2902.h>
 #include "HX711.h"
+#include <iostream>
+#include <string>
+#include <regex>
+#include <map>
+
+#define SERVICE_UUID           "a964d61b-a5b3-4b5c-9e1e-65029b3d936d" 
+#define CHARACTERISTIC_UUID_RX "9c731b8a-9088-48fe-8f8a-9bc071a3784b"
+#define CHARACTERISTIC_UUID_TX "8d0c925d-0f4a-4c4b-bfc3-758c89282220"
 
 BLECharacteristic *pCharacteristic;
 bool deviceConnected = false;
@@ -31,9 +22,7 @@ const int SCK_PIN = 18;
 
 HX711 scale(DOUT_PIN, SCK_PIN);
 
-#define SERVICE_UUID           "a964d61b-a5b3-4b5c-9e1e-65029b3d936d" 
-#define CHARACTERISTIC_UUID_RX "9c731b8a-9088-48fe-8f8a-9bc071a3784b"
-#define CHARACTERISTIC_UUID_TX "8d0c925d-0f4a-4c4b-bfc3-758c89282220"
+std::map<String, int> availableIngredients;
 
 class MyServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
@@ -42,6 +31,7 @@ class MyServerCallbacks: public BLEServerCallbacks {
     };
 
     void onDisconnect(BLEServer* pServer) {
+      Serial.println("Disconnected");
       deviceConnected = false;
     }
 };
@@ -73,10 +63,38 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 
       if (rxValue.length() > 0) {
         Serial.println("*********");
-        Serial.print("Received Value: ");
+        // Serial.print("Received Value (char for char):");
 
-        for (int i = 0; i < rxValue.length(); i++) {
-          Serial.print(rxValue[i]);
+        // for (int i = 0; i < rxValue.length(); i++) {
+        //   Serial.print(rxValue[i]);
+        // }
+        bool matched = false;
+
+        for(auto const& ingredient : availableIngredients) {
+          String regexString = String("(" + ingredient.first + ");(\\d*)");
+
+          if(std::regex_match(rxValue, std::regex(regexString.c_str()))) {
+            matched = true;
+            Serial.println("Matched value:");
+            Serial.println(rxValue.c_str());
+
+            Serial.println("First");
+            Serial.println(ingredient.first.c_str());
+            Serial.println("Second");
+            Serial.println(ingredient.second); // PIN NUMBER
+            Serial.println("amount");          
+            int amount = std::atoi(split(rxValue, ";", 1).c_str()); // amount
+            Serial.println(amount); 
+
+            //TODO: Start the motor and the weighing process
+          }
+  
+        }
+
+      
+        if(!matched) {
+           Serial.println("NOT matched value:");
+           Serial.println(rxValue.c_str());
         }
 
         // Serial.println();
@@ -100,6 +118,8 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 void setup() {
   Serial.begin(115200);
 
+  // Sets the pin for the Coffee-Engine
+  availableIngredients["COFFEE"] = 00;
 
   // Create the BLE Device
   BLEDevice::init("Dosieromat Proto"); // Give it a name
@@ -168,8 +188,10 @@ Adjust the parameter in step 4 until you get an accurate reading.
 
   Serial.println("Ready for weighing...");
 
-  weighItem();
+  //weighItem();
 }
+
+
 
 int weighItem() {
   Serial.println("10 Sekunden um Gewicht zu platzieren!");
@@ -186,10 +208,25 @@ int weighItem() {
   return weight;
 }
 
+bool sendValueToApp(String msg) {
+  pCharacteristic->setValue(msg.c_str());
+    
+  pCharacteristic->notify(); // Send the value to the app!
+  //Serial.print("*** Sent Message: ");
+  //Serial.print(msg);
+  //Serial.println(" ***");
+
+  return true;
+}
+
+
 
 void loop() {  
+
+
   if (deviceConnected) {
-    Serial.println("Device connected!");
+    //Serial.println("Device connected!");
+
     
     // Fabricate some arbitrary junk for now...
     txValue = random(4) / 3.456; // This could be an actual sensor reading!
@@ -198,15 +235,15 @@ void loop() {
     char txString[8]; // make sure this is big enuffz
     dtostrf(txValue, 1, 2, txString); // float_val, min_width, digits_after_decimal, char_buffer
     
+    //sendValueToApp(txString);
 //    pCharacteristic->setValue(&txValue, 1); // To send the integer value
 //    pCharacteristic->setValue("Hello!"); // Sending a test message
-    pCharacteristic->setValue(txString);
     
-    pCharacteristic->notify(); // Send the value to the app!
-    Serial.print("*** Sent Value: ");
-    Serial.print(txString);
-    Serial.println(" ***");
   }
-  // Serial.print("test");
-  //delay(1000);
+  else {
+    Serial.println("Not connected!");
+    delay(2000);
+  }  
+  
+  //delay(2000);
 }
