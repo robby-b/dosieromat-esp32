@@ -47,6 +47,27 @@ class MyServerCallbacks: public BLEServerCallbacks {
 };
 
 class MyCallbacks: public BLECharacteristicCallbacks {
+    // splits a string at a delimiter in two parts and returns either the first part (n=0) or the second part (n=1)
+    std::string split(std::string s, std::string delimiter, int n) {
+      size_t pos = 0;
+      std::string token;
+      int i = 0;
+
+      while ((pos = s.find(delimiter)) != std::string::npos) {
+        token = s.substr(0, pos);
+        if(n == 0) {
+          return token;
+        }
+        else {
+          s.erase(0, pos + delimiter.length());
+          return s;
+        }
+        break;
+      }
+
+      return "";
+    }
+
     void onWrite(BLECharacteristic *pCharacteristic) {
       std::string rxValue = pCharacteristic->getValue();
 
