@@ -20,17 +20,16 @@
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include <BLE2902.h>
+#include "HX711.h"
 
 BLECharacteristic *pCharacteristic;
 bool deviceConnected = false;
 float txValue = 0;
-const int readPin = 32; // Use GPIO number. See ESP32 board pinouts
-const int LED = 2; // Could be different depending on the dev board. I used the DOIT ESP32 dev board.
 
-//std::string rxValue; // Could also make this a global var to access it in loop()
+const int DOUT_PIN = 19;
+const int SCK_PIN = 18;
 
-// See the following for generating UUIDs:
-// https://www.uuidgenerator.net/
+HX711 scale(DOUT_PIN, SCK_PIN);
 
 #define SERVICE_UUID           "a964d61b-a5b3-4b5c-9e1e-65029b3d936d" 
 #define CHARACTERISTIC_UUID_RX "9c731b8a-9088-48fe-8f8a-9bc071a3784b"
@@ -80,7 +79,6 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 void setup() {
   Serial.begin(115200);
 
-  pinMode(LED, OUTPUT);
 
   // Create the BLE Device
   BLEDevice::init("Dosieromat Proto"); // Give it a name
@@ -118,7 +116,55 @@ void setup() {
   pAdvertising->setMinPreferred(0x12);
   BLEDevice::startAdvertising();  
   Serial.println("Waiting a client connection to notify...");
+
+
+/* 
+HX711 SETUP
+Call set_scale() with no parameter.
+Call tare() with no parameter.
+Place a known weight on the scale and call get_units(10).
+Divide the result in step 3 to your known weight. You should get about the parameter you need to pass to set_scale().
+Adjust the parameter in step 4 until you get an accurate reading. 
+*/
+
+  // delay(1000);
+  // Serial.println("set scale");
+  // scale.set_scale();
+  // delay(1000);
+  // Serial.println("Tarieren");
+  // scale.tare();
+
+  
+  // erster versuch: echtes gewicht: 146g
+  // ergebnis: 29737
+  // faktor: 0,0049097
+  // alternative: 203,678
+
+
+  scale.set_scale(203.f);
+  scale.tare();
+
+
+  Serial.println("Ready for weighing...");
+
+  weighItem();
 }
+
+int weighItem() {
+  Serial.println("10 Sekunden um Gewicht zu platzieren!");
+
+  for(int i = 0; i < 10; i++) {
+    Serial.println(i);
+    delay(1000);
+  }
+
+  int weight = (int) scale.get_units(10);
+
+  Serial.printf("Gewicht: %d Gramm\n", weight);
+
+  return weight;
+}
+
 
 void loop() {  
   if (deviceConnected) {
@@ -139,20 +185,7 @@ void loop() {
     Serial.print("*** Sent Value: ");
     Serial.print(txString);
     Serial.println(" ***");
-
-    // You can add the rxValue checks down here instead
-    // if you set "rxValue" as a global var at the top!
-    // Note you will have to delete "std::string" declaration
-    // of "rxValue" in the callback function.
-//    if (rxValue.find("A") != -1) { 
-//      Serial.println("Turning ON!");
-//      digitalWrite(LED, HIGH);
-//    }
-//    else if (rxValue.find("B") != -1) {
-//      Serial.println("Turning OFF!");
-//      digitalWrite(LED, LOW);
-//    }
   }
   // Serial.print("test");
-  delay(1000);
+  //delay(1000);
 }
