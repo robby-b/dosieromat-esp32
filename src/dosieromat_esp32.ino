@@ -28,13 +28,15 @@ Servo myServo;
 std::map<String, int> availableIngredients;
 
 class MyServerCallbacks : public BLEServerCallbacks
-{
+{ 
+  // Callback wird ausgelöst, wenn sich ein Gerät mit dem BLE Server des ESP verbindet
   void onConnect(BLEServer *pServer)
   {
     Serial.println("Connected");
     deviceConnected = true;
   };
 
+  // Callback wird ausgelöst, wenn die Verbindung zwischen Gerät und dem BLE Server des ESP getrennt wird
   void onDisconnect(BLEServer *pServer)
   {
     Serial.println("Disconnected");
@@ -45,6 +47,7 @@ class MyServerCallbacks : public BLEServerCallbacks
 class MyCallbacks : public BLECharacteristicCallbacks
 {
   // splits a string at a delimiter in two parts and returns either the first part (n=0) or the second part (n=1)
+  // Wird genutzt um einen Befehl von der App im Format ZUTAT;GRAMM (bspw. COFFEE;60) zu trennen
   std::string split(std::string s, std::string delimiter, int n)
   {
     size_t pos = 0;
@@ -68,6 +71,11 @@ class MyCallbacks : public BLECharacteristicCallbacks
     return "";
   }
 
+  /*
+  Callback wird ausgelöst wenn vom Client eine Nachricht gesendet wird
+  Der Code innerhalb dient dem parsen der gesendeten Nachricht, ob bspw. ein Befehl gefunden wird.
+  Darauf folgend wird dann ggf. die entsprechende Methode in der Hilfsklasse aufgerufen.
+  */
   void onWrite(BLECharacteristic *pCharacteristic)
   {
     std::string rxValue = pCharacteristic->getValue();
@@ -97,8 +105,6 @@ class MyCallbacks : public BLECharacteristicCallbacks
           Serial.println("amount");
           int amount = std::atoi(split(rxValue, ";", 1).c_str()); // amount
           Serial.printf("Gesendete Menge: %d\n", amount);
-          //amount = 10;
-          Serial.printf("Debug Menge: %d", amount);
           DosieromatHelper::measureOut(scale, &myServo, pCharacteristic, amount);
         }
       }
@@ -135,18 +141,19 @@ void setup()
 {
   Serial.begin(115200);
 
+  // Initialisierung derr Waage
   scale.begin(DOUT_PIN, SCK_PIN);
-  scale.set_scale(384);
+  scale.set_scale(384); // Kalibrierungsfaktor durch mehrmaliges Wiegen von bekannten Gewichten bestimmt
   scale.tare();
 
-  //Schüssel: 263,24g
+  // Servo an Pin 15 angeschlossen
   myServo.attach(15);
 
-  // Sets the pin for the Coffee-Engine
+  // Setzt die verfügbaren Zutaten dieses Dosieromaten, und den zugehörige Pin.
   availableIngredients["COFFEE"] = 15;
 
   // Create the BLE Device
-  BLEDevice::init("Dosieromat Proto"); // Give it a name
+  BLEDevice::init("Dosieromat Proto");
 
   // Create the BLE Server
   BLEServer *pServer = BLEDevice::createServer();
@@ -155,13 +162,14 @@ void setup()
   // Create the BLE Service
   BLEService *pService = pServer->createService(SERVICE_UUID);
 
-  // Create a BLE Characteristic
+  // Create a BLE Characteristic for writing to the client
   pCharacteristic = pService->createCharacteristic(
       CHARACTERISTIC_UUID_TX,
       BLECharacteristic::PROPERTY_NOTIFY);
 
   pCharacteristic->addDescriptor(new BLE2902());
 
+  // Create a BLE Characteristic for receiving messages from the client
   BLECharacteristic *pCharacteristic = pService->createCharacteristic(
       CHARACTERISTIC_UUID_RX,
       BLECharacteristic::PROPERTY_WRITE);
@@ -187,17 +195,7 @@ void loop()
 {
   if (deviceConnected)
   {
-    //Serial.println("Device connected!");
-
-    // Fabricate some arbitrary junk for now...
-    txValue = random(4) / 3.456; // This could be an actual sensor reading!
-
-    // Let's convert the value to a char array:
-    char txString[8];                 // make sure this is big enuffz
-    dtostrf(txValue, 1, 2, txString); // float_val, min_width, digits_after_decimal, char_buffer
-    //DosieromatHelper::sendValueToApp(pCharacteristic, txString);
-    //    pCharacteristic->setValue(&txValue, 1); // To send the integer value
-    //    pCharacteristic->setValue("Hello!"); // Sending a test message
+    // Arbeit wird praktisch ausschließlich in den Callbacks erledigt, daher ist die Loop funktion bis auf Debugausgaben und delays leer
   }
   else
   {

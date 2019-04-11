@@ -5,8 +5,15 @@
 #include <ESP32_Servo.h>
 
 
+/*
+Statische Klasse, dient nur dazu den Code der Waage und Motorsteuerung optisch vom Bluetooth in der Hauptklasse zu trennen
+*/
 class DosieromatHelper {
   public:
+    /* 
+    Statische Methode um manuell ein Gewicht zu wiegen
+    Ausschließlich zum Debuggen und Kalibrieren der Waage genutzt 
+    */
     static int weighItem(HX711& scale) {
       Serial.println("10 Sekunden um Gewicht zu platzieren!");
 
@@ -22,6 +29,9 @@ class DosieromatHelper {
       return weight;
     }
 
+    /*
+    Statische Methode die eine Nachricht über BLE an ein verbundenes Gerät (in dem Fall die App) sendet
+    */
     static bool sendValueToApp(BLECharacteristic* pCharacteristic, String msg) {
       pCharacteristic->setValue(msg.c_str());
       delay(5);  
@@ -34,6 +44,11 @@ class DosieromatHelper {
       return true;
     }
 
+    /*
+    Hauptfunktion des Mikrocontrollers.
+    Diese Funktion startet den Motor und wiegt konstant das derzeitige Gewicht auf der Waage.
+    Ist das gewünschte Gewicht erreicht, stoppt der Motor. 
+    */
     static int measureOut(HX711& scale, Servo* servo, BLECharacteristic* pCharacteristic, int desiredWeight) {
       Serial.println("Abwiegen gestartet!");
       scale.tare();
@@ -46,7 +61,6 @@ class DosieromatHelper {
         currentWeight = scale.get_units(20);
         int progress = (int) ((currentWeight/desiredWeight) * 100);
         Serial.printf("Progress: %d %%\n", progress);        
-        //DosieromatHelper::sendValueToApp(pCharacteristic, String("PROGRESS;50"));
         delay(5);
       }
       servo->write(88);
@@ -55,6 +69,10 @@ class DosieromatHelper {
       return 0;
     }
 
+  /*
+  Startet den Motor manuell für eine angegebende Anzahl an Sekunden.
+  Nur während der Entwicklung genutzt.
+  */
   static void startMotor(Servo* servo, BLECharacteristic* pCharacteristic, int seconds) {
     for(int i = 0; i < seconds; i++) {
       servo->write(180);
@@ -68,4 +86,3 @@ class DosieromatHelper {
     servo->write(87);
   }
 };
-
