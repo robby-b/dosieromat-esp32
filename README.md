@@ -1,5 +1,3 @@
-# dosieromat-esp32
-
 # Dosieromat
 ## Mikrocontroller Code
 
