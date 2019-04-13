@@ -25,7 +25,11 @@ const int SCK_PIN = 18;
 HX711 scale;
 Servo myServo;
 
-std::map<String, int> availableIngredients;
+/*
+Map von allen verfügbaren Zutaten des Dosieromatsystems mit dem zugehörigen Pin
+Im Prototyp nur eine Zutat Kaffee, ist also primär zur Erweiterbarkeit
+*/
+std::map<String, int> availableIngredients; 
 
 class MyServerCallbacks : public BLEServerCallbacks
 { 
@@ -141,7 +145,7 @@ void setup()
 {
   Serial.begin(115200);
 
-  // Initialisierung derr Waage
+  // Initialisierung der Waage
   scale.begin(DOUT_PIN, SCK_PIN);
   scale.set_scale(384); // Kalibrierungsfaktor durch mehrmaliges Wiegen von bekannten Gewichten bestimmt
   scale.tare();
